@@ -170,7 +170,7 @@ h1{font-family:var(--display);font-weight:800;font-size:22px;margin:0;letter-spa
 
 <script>
 /* ---------- Alimenti: kcal per 100 g (k) oppure per unità (ku) ---------- */
-const R={carne:"Carne e salumi",pesce:"Pesce",latt:"Latticini e uova",cer:"Pane, pasta e cereali",fv:"Frutta e verdura",disp:"Dispensa"};
+const R={carne:"Carne e salumi",pesce:"Pesce",latt:"Latticini e uova",cer:"Pane, pasta e cereali",fv:"Frutta e verdura",disp:"Dispensa",altro:"Altro"};
 const F={
  yog:{n:"Yogurt greco 0% o TruBlend",k:57,r:"latt"},
  latte:{n:"Latte parzialmente scremato",k:46,r:"latt"},
@@ -192,7 +192,8 @@ const F={
  secca:{n:"Frutta secca",k:620,r:"disp"},
  avo:{n:"Avocado",k:160,r:"fv"},
  frutto:{n:"Frutto medio (o 2 piccoli)",ku:70,u:"frutto",r:"fv"},
- altrofrutto:{n:"Altro frutto (scrivi tu)",ku:0,u:"frutto",r:"fv",custom:1},
+ altrofrutto:{n:"Altro frutto (scrivi tu)",ku:0,u:"frutto",r:"fv",custom:1,fruit:1},
+ altro:{n:"Altro (scrivi tu)",ku:0,u:"porzione",r:"altro",custom:1},
  none:{n:"Nessuna delle precedenti",k:0,none:1},
  fragole:{n:"Fragole",k:32,r:"fv"},
  cocomero:{n:"Cocomero",k:30,r:"fv"},
@@ -254,7 +255,7 @@ const MEALS=[
   {role:"prot",label:"Proteine",opts:[["pollo",200],["tacc",190],["bov",160,"xF"],["vit",220],["spada",180,"xF"],["merl",280],["gamb",330],["ricp",200,"hF"],["fiocchi",200,"hF"],["mozzp",150,"xF"],["alb",400],["legumi",200,"hC"]]},
   {role:"fat",label:"Grassi",opts:[["olio",2],["noci",20],["pesto",40],["spalm",30],["avo",40]]},VEG]},
 ];
-MEALS.forEach(m=>m.groups.forEach(g=>{if(!g.opts.some(o=>o[0]==="none"))g.opts.push(["none",0]);}));
+MEALS.forEach(m=>m.groups.forEach(g=>{if(!g.opts.some(o=>F[o[0]].custom))g.opts.push(["altro",1]);if(!g.opts.some(o=>o[0]==="none"))g.opts.push(["none",0]);}));
 const COFFEE=[["esp","Espresso amaro o con dolcificante",2],["espz","Espresso con 1 cucchiaino di zucchero",22],["macc","Caffè macchiato",8],["amer","Caffè americano",3],["capp","Cappuccino (latte parz. scremato)",65],["clat","Caffè latte (150 ml di latte parz. scremato)",72]];
 const RULETXT={xF:"Grassi esclusi in questo pasto",hF:"Grassi dimezzati in questo pasto",hC:"Carboidrati dimezzati in questo pasto"};
 const DOW=["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
@@ -294,7 +295,7 @@ function calcMeal(meal,ms){
     if(p.g.role==="fat")fac=fatF;
     if(p.g.role==="carb")fac=carbF;
     const q=p.o[1]*fac;let k=kcalOf(f,q);
-    if(f.custom){const cu=(ms.cust||{})[p.i]||{};f={...f,n:(cu.name||"").trim()||"Altro frutto",ku:1};k=Number(cu.kcal)||0;}
+    if(f.custom){const cu=(ms.cust||{})[p.i]||{};f={...f,n:(cu.name||"").trim()||(f.fruit?"Altro frutto":"Altro"),ku:1};k=Number(cu.kcal)||0;}
     kcal+=k;
     items.push({...p,f,q,k,fac,base:p.o[1]});
   }
@@ -371,10 +372,10 @@ function renderDay(){
         if(off)h+=`<div class="rule">Escluso: oggi niente fonte di grassi in questo pasto</div>`;
         else if(it.f.none){h+=`<div class="eff"><span>Niente per questa voce</span><span class="num">0 kcal</span></div>`;}
         else if(it.f.custom){const cu=(ms.cust||{})[it.i]||{};
-          h+=`<div class="cust"><input id="cn-${m.id}-${it.i}" type="text" placeholder="Che frutto? es. kiwi" value="${esc(cu.name||"")}" data-act="custname" data-g="${it.i}" aria-label="Nome del frutto">
-            <input id="ck-${m.id}-${it.i}" type="number" inputmode="numeric" min="0" step="5" placeholder="kcal" value="${esc(cu.kcal??"")}" data-act="custkcal" data-g="${it.i}" aria-label="Calorie stimate del frutto"></div>
+          h+=`<div class="cust"><input id="cn-${m.id}-${it.i}" type="text" placeholder="${it.f.fruit?"Che frutto? es. kiwi":"Cosa? es. piadina"}" value="${esc(cu.name||"")}" data-act="custname" data-g="${it.i}" aria-label="Cosa hai mangiato">
+            <input id="ck-${m.id}-${it.i}" type="number" inputmode="numeric" min="0" step="5" placeholder="kcal" value="${esc(cu.kcal??"")}" data-act="custkcal" data-g="${it.i}" aria-label="Calorie stimate"></div>
             <div class="eff"><span>${esc(it.f.n)}</span><span class="num">${Math.round(it.k)} kcal</span></div>
-            <div class="note">Un frutto medio ha di solito tra 50 e 90 kcal</div>`;}
+            <div class="note">${it.f.fruit?"Un frutto medio ha di solito tra 50 e 90 kcal":"Scrivi le kcal della porzione che mangi"}</div>`;}
         else{
           h+=`<div class="eff"><span>${it.fac!==1?`Porzione dimezzata: <b class="num">${fmtQ(it.f,it.q)}</b>`:`<b class="num">${fmtQ(it.f,it.q)}</b>`}</span><span class="num">${Math.round(it.k)} kcal</span></div>`;
           if(it.o[3])h+=`<div class="note">${esc(it.o[3])}</div>`;
