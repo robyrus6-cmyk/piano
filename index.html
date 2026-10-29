@@ -121,6 +121,14 @@ h1{font-family:var(--display);font-weight:800;font-size:22px;margin:0;letter-spa
 .li input{width:20px;height:20px;accent-color:var(--accent);flex:none}
 .li .nm{flex:1;min-width:0}
 .li .q{font-weight:600}
+.cust{display:flex;gap:8px;margin-top:6px}
+.cust input{flex:1;min-width:0;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.cust input[type="number"]{flex:0 0 92px}
+.crows{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px}
+.crow{display:flex;align-items:center;gap:10px}
+.crow .nm{flex:1;min-width:0;font-size:14px}
+.crow small{display:block;color:var(--muted);font-size:12px}
+.crow b{min-width:22px;text-align:center;font-family:var(--display);font-size:17px}
 .li.got .nm,.li.got .q{text-decoration:line-through;color:var(--muted)}
 .muted{color:var(--muted);font-size:13px}
 .weekbars{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:150px;margin-top:10px;padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
@@ -184,6 +192,8 @@ const F={
  secca:{n:"Frutta secca",k:620,r:"disp"},
  avo:{n:"Avocado",k:160,r:"fv"},
  frutto:{n:"Frutto medio (o 2 piccoli)",ku:70,u:"frutto",r:"fv"},
+ altrofrutto:{n:"Altro frutto (scrivi tu)",ku:0,u:"frutto",r:"fv",custom:1},
+ none:{n:"Nessuna delle precedenti",k:0,none:1},
  fragole:{n:"Fragole",k:32,r:"fv"},
  cocomero:{n:"Cocomero",k:30,r:"fv"},
  melone:{n:"Melone",k:34,r:"fv"},
@@ -232,7 +242,7 @@ const MEALS=[
   {role:"fat",label:"Grassi",opts:[["burro",10],["cioc",10],["crema",10],["secca",10],["avo",30]]}]},
  {id:"spuntino",name:"Spuntino",sub:"Gli spuntini si possono invertire o unire",groups:[
   {role:"extra",label:"Snack",opts:[["secca",10],["cioc",10],["burro",10]]},
-  {role:"fruit",label:"Frutta",opts:[["frutto",1],["fragole",150],["cocomero",300],["melone",150],["ananas",120]]}]},
+  {role:"fruit",label:"Frutta",opts:[["frutto",1],["fragole",150],["cocomero",300],["melone",150],["ananas",120],["altrofrutto",1]]}]},
  {id:"pranzo",name:"Pranzo",groups:[
   {role:"carb",label:"Carboidrati",opts:[["pasta",80],["riso",80],["pane",130],["patate",350],["gnocchi",160],["quinoa",70],["farro",70],["orzo",70],["cous",70]]},
   {role:"prot",label:"Proteine",opts:[["pollo",200],["tacc",190],["bov",160,"xF"],["vit",220],["tonno",120,"xF"],["sgombro",110,"xF"],["spada",180,"hF"],["merl",280],["salm",110,"xF"],["gamb",330],["ricp",200,"hF"],["fiocchi",200,"hF"],["mozzp",150,"hF"],["uovo",3,"xF"],["alb",400],["legumi",200,"hC"]]},
@@ -244,6 +254,8 @@ const MEALS=[
   {role:"prot",label:"Proteine",opts:[["pollo",200],["tacc",190],["bov",160,"xF"],["vit",220],["spada",180,"xF"],["merl",280],["gamb",330],["ricp",200,"hF"],["fiocchi",200,"hF"],["mozzp",150,"xF"],["alb",400],["legumi",200,"hC"]]},
   {role:"fat",label:"Grassi",opts:[["olio",2],["noci",20],["pesto",40],["spalm",30],["avo",40]]},VEG]},
 ];
+MEALS.forEach(m=>m.groups.forEach(g=>{if(!g.opts.some(o=>o[0]==="none"))g.opts.push(["none",0]);}));
+const COFFEE=[["esp","Espresso amaro o con dolcificante",2],["espz","Espresso con 1 cucchiaino di zucchero",22],["macc","Caffè macchiato",8],["amer","Caffè americano",3],["capp","Cappuccino (latte parz. scremato)",65],["clat","Caffè latte (150 ml di latte parz. scremato)",72]];
 const RULETXT={xF:"Grassi esclusi in questo pasto",hF:"Grassi dimezzati in questo pasto",hC:"Carboidrati dimezzati in questo pasto"};
 const DOW=["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
 const TARGET={kcal:1505,c:146,p:127,g:46};
@@ -278,10 +290,11 @@ function calcMeal(meal,ms){
   const carbF=rules.has("hC")?.5:1;
   let kcal=0;const items=[];
   for(const p of picks){
-    const f=F[p.o[0]];let fac=1;
+    let f=F[p.o[0]];let fac=1;
     if(p.g.role==="fat")fac=fatF;
     if(p.g.role==="carb")fac=carbF;
-    const q=p.o[1]*fac;const k=kcalOf(f,q);
+    const q=p.o[1]*fac;let k=kcalOf(f,q);
+    if(f.custom){const cu=(ms.cust||{})[p.i]||{};f={...f,n:(cu.name||"").trim()||"Altro frutto",ku:1};k=Number(cu.kcal)||0;}
     kcal+=k;
     items.push({...p,f,q,k,fac,base:p.o[1]});
   }
@@ -295,8 +308,11 @@ function dayTotals(d){
     if(ms.free){k=Number(ms.freeKcal)||0;}else k=calcMeal(m,ms).kcal;
     plan+=k;if(ms.done)eaten+=k;per.push(k);
   }
-  return{plan,eaten,per};
+  const cf=coffeeTot(d);plan+=cf.k;eaten+=cf.k;
+  return{plan,eaten,per,coffee:cf};
 }
+function coffee(d){const day=week().days[d];if(!day.caffe)day.caffe={};return day.caffe;}
+function coffeeTot(d){const c=coffee(d);let n=0,k=0;for(const[id,,kc]of COFFEE){const x=c[id]||0;n+=x;k+=x*kc;}return{n,k};}
 function affCount(){
   let n=0;
   for(let d=0;d<7;d++)for(const m of MEALS){const ms=mealState(d,m.id);if(ms.free)continue;
@@ -350,9 +366,15 @@ function renderDay(){
         const off=it.fac===0;
         h+=`<div class="g${off?" off":""}"><label for="s-${m.id}-${it.i}">${it.g.label}</label>
           <select id="s-${m.id}-${it.i}" data-act="sel" data-g="${it.i}" ${off?"disabled":""}>`;
-        it.g.opts.forEach((o,oi)=>{const f=F[o[0]];h+=`<option value="${oi}" ${oi===it.idx?"selected":""}>${esc(f.n)} · ${fmtQ(f,o[1])}</option>`;});
+        it.g.opts.forEach((o,oi)=>{const f=F[o[0]];h+=`<option value="${oi}" ${oi===it.idx?"selected":""}>${esc(f.n)}${f.none||f.custom?"":" · "+fmtQ(f,o[1])}</option>`;});
         h+=`</select>`;
         if(off)h+=`<div class="rule">Escluso: oggi niente fonte di grassi in questo pasto</div>`;
+        else if(it.f.none){h+=`<div class="eff"><span>Niente per questa voce</span><span class="num">0 kcal</span></div>`;}
+        else if(it.f.custom){const cu=(ms.cust||{})[it.i]||{};
+          h+=`<div class="cust"><input id="cn-${m.id}-${it.i}" type="text" placeholder="Che frutto? es. kiwi" value="${esc(cu.name||"")}" data-act="custname" data-g="${it.i}" aria-label="Nome del frutto">
+            <input id="ck-${m.id}-${it.i}" type="number" inputmode="numeric" min="0" step="5" placeholder="kcal" value="${esc(cu.kcal??"")}" data-act="custkcal" data-g="${it.i}" aria-label="Calorie stimate del frutto"></div>
+            <div class="eff"><span>${esc(it.f.n)}</span><span class="num">${Math.round(it.k)} kcal</span></div>
+            <div class="note">Un frutto medio ha di solito tra 50 e 90 kcal</div>`;}
         else{
           h+=`<div class="eff"><span>${it.fac!==1?`Porzione dimezzata: <b class="num">${fmtQ(it.f,it.q)}</b>`:`<b class="num">${fmtQ(it.f,it.q)}</b>`}</span><span class="num">${Math.round(it.k)} kcal</span></div>`;
           if(it.o[3])h+=`<div class="note">${esc(it.o[3])}</div>`;
@@ -368,6 +390,14 @@ function renderDay(){
     if(!ms.free&&ms._prompt)h+=recipeHTML(ms);
     h+=`</article>`;
   });
+  const cf=t.coffee,cs=coffee(dayIdx);
+  h+=`<article class="meal"><div class="mhead"><div class="grow"><h2>Caffè</h2><div class="sub">Tocca + ogni volta che ne prendi uno</div></div>
+    <div class="mk"><b class="num">${cf.n}</b> <span class="muted">${cf.n===1?"caffè":"caffè"}</span><div class="num">${Math.round(cf.k)} kcal</div></div></div><div class="crows">`;
+  for(const[id,nm,kc]of COFFEE){const x=cs[id]||0;
+    h+=`<div class="crow"><span class="nm">${esc(nm)}<small class="num">${kc} kcal l'uno</small></span>
+      <button class="icon-btn" data-cof="${id}" data-d="-1" aria-label="Togli un ${esc(nm)}" ${x?"":"disabled"}>−</button><b class="num">${x}</b>
+      <button class="icon-btn" data-cof="${id}" data-d="1" aria-label="Aggiungi un ${esc(nm)}">+</button></div>`;}
+  h+=`</div></article>`;
   $("#view").innerHTML=h;
 }
 function recipeHTML(ms){
@@ -382,7 +412,8 @@ function recipeHTML(ms){
 function shopItems(){
   const agg={};
   for(let d=0;d<7;d++)for(const m of MEALS){const ms=mealState(d,m.id);if(ms.free)continue;
-    for(const it of calcMeal(m,ms).items){if(it.q<=0)continue;const id=it.o[0];
+    for(const it of calcMeal(m,ms).items){if(it.q<=0||it.f.none)continue;
+      const id=it.f.custom?"cf-"+encodeURIComponent(it.f.n.toLowerCase()):it.o[0];
       if(!agg[id])agg[id]={id,f:it.f,q:0};agg[id].q+=it.q;}}
   return Object.values(agg);
 }
@@ -420,6 +451,8 @@ function renderWeek(){
     <div class="stat"><b class="num">${done}/35</b><span>pasti segnati come fatti</span></div>
     <div class="stat"><b class="num" style="color:${aff>3?"var(--warn)":"inherit"}">${aff}/3</b><span>affettati in settimana</span></div>
     <div class="stat"><b class="num">${fr}</b><span>pasti liberi</span></div>
+    <div class="stat"><b class="num">${tots.reduce((a,t)=>a+t.coffee.n,0)}</b><span>caffè in settimana</span></div>
+    <div class="stat"><b class="num">${Math.round(tots.reduce((a,t)=>a+t.coffee.k,0))}</b><span>kcal da caffè in settimana</span></div>
    </div>
    <h2 class="section-title">Strumenti</h2>
    <div class="mfoot" style="padding:0"><button class="btn" data-act="copyprev">Copia le scelte della settimana prima</button><button class="btn" data-act="resetweek" id="resetBtn">Svuota questa settimana</button></div>
@@ -436,6 +469,8 @@ let confirmReset=false;
 $("#view").addEventListener("click",e=>{
   const dayB=e.target.closest("[data-day]");
   if(dayB){dayIdx=+dayB.dataset.day;tab="giorno";render();window.scrollTo({top:0});return;}
+  const cb=e.target.closest("[data-cof]");
+  if(cb){const c=coffee(dayIdx);const id=cb.dataset.cof;c[id]=Math.max(0,(c[id]||0)+Number(cb.dataset.d));save();render();return;}
   const b=e.target.closest("[data-act]");if(!b)return;
   const act=b.dataset.act;
   if(act==="copyprev"){
@@ -443,7 +478,7 @@ $("#view").addEventListener("click",e=>{
     const src=S.weeks[pk];const msg=$("#toolMsg");
     if(!src){msg.textContent="La settimana precedente è vuota.";return;}
     const w=week();
-    src.days.forEach((day,i)=>{for(const mid in day){const m=mealState(i,mid);m.sel={...day[mid].sel};m.free=!!day[mid].free;m.freeKcal=day[mid].freeKcal||"";m.done=false;delete m.recipe;}});
+    src.days.forEach((day,i)=>{for(const mm of MEALS){const mid=mm.id;if(!day[mid])continue;const m=mealState(i,mid);m.sel={...day[mid].sel};m.cust=JSON.parse(JSON.stringify(day[mid].cust||{}));m.free=!!day[mid].free;m.freeKcal=day[mid].freeKcal||"";m.done=false;delete m.recipe;}});
     save();render();$("#toolMsg").textContent="Scelte copiate. Le spunte dei pasti fatti ripartono da zero.";return;
   }
   if(act==="resetweek"){
@@ -469,6 +504,8 @@ $("#view").addEventListener("change",e=>{
   const ms=mealState(dayIdx,card.dataset.meal);
   if(el.dataset.act==="sel"){ms.sel[el.dataset.g]=+el.value;delete ms.recipe;delete ms._prompt;delete ms._copied;save();render();}
   if(el.dataset.act==="freekcal"){ms.freeKcal=el.value;save();render();}
+  if(el.dataset.act==="custname"||el.dataset.act==="custkcal"){ms.cust=ms.cust||{};const g=el.dataset.g;ms.cust[g]=ms.cust[g]||{};
+    if(el.dataset.act==="custname")ms.cust[g].name=el.value;else ms.cust[g].kcal=el.value;delete ms._prompt;save();render();}
 });
 
 /* ---------- Ricette: richiesta pronta da incollare in Claude ---------- */
