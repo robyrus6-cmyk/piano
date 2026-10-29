@@ -169,6 +169,7 @@ h1{font-family:var(--display);font-weight:800;font-size:22px;margin:0;letter-spa
 </div>
 
 <script>
+const APP_VERSION="2026-10-29-3";
 /* ---------- Alimenti: kcal per 100 g (k) oppure per unità (ku) ---------- */
 const R={carne:"Carne e salumi",pesce:"Pesce",latt:"Latticini e uova",cer:"Pane, pasta e cereali",fv:"Frutta e verdura",disp:"Dispensa",altro:"Altro"};
 const F={
@@ -456,7 +457,8 @@ function renderWeek(){
     <div class="stat"><b class="num">${Math.round(tots.reduce((a,t)=>a+t.coffee.k,0))}</b><span>kcal da caffè in settimana</span></div>
    </div>
    <h2 class="section-title">Strumenti</h2>
-   <div class="mfoot" style="padding:0"><button class="btn" data-act="copyprev">Copia le scelte della settimana prima</button><button class="btn" data-act="resetweek" id="resetBtn">Svuota questa settimana</button></div>
+   <div class="mfoot" style="padding:0"><button class="btn" data-act="copyprev">Copia le scelte della settimana prima</button><button class="btn" data-act="resetweek" id="resetBtn">Svuota questa settimana</button><button class="btn" data-act="forceupdate">Aggiorna app</button></div>
+   <p class="muted num">Versione ${APP_VERSION}</p>
    <p class="muted" id="toolMsg"></p>`;
   $("#view").innerHTML=h;
 }
@@ -482,6 +484,7 @@ $("#view").addEventListener("click",e=>{
     src.days.forEach((day,i)=>{for(const mm of MEALS){const mid=mm.id;if(!day[mid])continue;const m=mealState(i,mid);m.sel={...day[mid].sel};m.cust=JSON.parse(JSON.stringify(day[mid].cust||{}));m.free=!!day[mid].free;m.freeKcal=day[mid].freeKcal||"";m.done=false;delete m.recipe;}});
     save();render();$("#toolMsg").textContent="Scelte copiate. Le spunte dei pasti fatti ripartono da zero.";return;
   }
+  if(act==="forceupdate"){freshLoad();return;}
   if(act==="resetweek"){
     if(!confirmReset){confirmReset=true;b.textContent="Tocca di nuovo per confermare";return;}
     confirmReset=false;delete S.weeks[wk()];delete S.shop[wk()];save();render();$("#toolMsg").textContent="Settimana svuotata.";return;
@@ -520,6 +523,21 @@ ${lines}
 Regole: non aggiungere altri ingredienti calorici, condimenti grassi o zuccheri. Posso usare solo spezie, erbe aromatiche, sale, pepe, aglio, poca cipolla, limone, aceto, caffè, cannella e dolcificante a zero calorie. Massimo 25 minuti con padella antiaderente, forno o friggitrice ad aria. Dammi titolo, ingredienti con le grammature, procedimento a passaggi e un consiglio pratico.`;
   ms._copied=false;render();
 }
+
+/* ---------- Aggiornamento automatico ---------- */
+function freshLoad(){location.replace("./?v="+Date.now());}
+function checkUpdate(){
+  fetch("./index.html?nocache="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"").then(t=>{
+    const m=t.match(/APP_VERSION="([^"]+)"/);
+    if(!m||m[1]===APP_VERSION)return;
+    let last="";try{last=sessionStorage.getItem("piano-upd")||"";}catch(e){}
+    if(last===m[1])return;
+    try{sessionStorage.setItem("piano-upd",m[1]);}catch(e){}
+    freshLoad();
+  }).catch(()=>{});
+}
+checkUpdate();
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkUpdate();});
 
 render();
 </script>
